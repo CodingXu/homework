@@ -1,6 +1,0 @@
-ssh -T git@github.com
-git add up.sh
-git commit -m 'Modify'
-git remote rm origin
-git remote add origin https://github.com/CodingXu/homework
-git push origin master
