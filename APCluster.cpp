@@ -1,10 +1,15 @@
-//APèšç±»
+//AP¾ÛÀà
 #include<iostream>
 #include<vector>
-#include <list>
+#include<list>
+#include <fstream>
+#include <algorithm>
+#include <cmath>
+#include <set>
+#include <cfloat>
 using namespace std;
 
-//è¡¨ç¤ºä¸€ä¸ªé¡¶ç‚¹
+//±íÊ¾Ò»¸ö¶¥µã
 struct StructPoint{
 	int nID;
 	int nType;
@@ -14,7 +19,7 @@ struct StructPoint{
 	}
 };
 
-//è¡¨ç¤ºæœ‰èµ·ç‚¹ç»ˆç‚¹æƒå€¼çš„ä¸€æ¡è¾¹
+//±íÊ¾ÓĞÆğµãÖÕµãÈ¨ÖµµÄÒ»ÌõÓĞÏò±ß
 struct StructEdge{
     int srcID;
     int desID;
@@ -29,36 +34,485 @@ struct StructEdge{
 	}
 };
 
-//è®¡ç®—ä¸¤ä¸ªæ•°æ®ç‚¹é—´çš„æ¬§æ°è·ç¦» 
+//¼ÆËãÁ½¸öÊı¾İµã¼äµÄÅ·ÊÏ¾àÀë 
 bool calEuclidDistance(StructPoint &srcP, StructPoint &desP, double &dis){
-	dis = (srcP.x - desP.x) * (srcP.x - desP.x) + (srcP.y - desP.y) * (srcP.y - desP.y);
+	dis = (srcP.pointX - desP.pointX) * (srcP.pointX - desP.pointX) + (srcP.pointY - desP.pointY) * (srcP.pointY - desP.pointY);
 	dis = - dis;
 	return true;
 }
 
-//è®¡ç®—æ‰€æœ‰æ•°æ®ç‚¹é—´çš„æ¬§æ°è·ç¦»
+//¼ÆËãËùÓĞÊı¾İµã¼äµÄÅ·ÊÏ¾àÀë
 bool calSimilarity(list<StructPoint> &listPoint, list<StructEdge> &listSim){
 	list<StructPoint>::iterator itSrc, itDes;
-	StructEdge tempEdge;
+	StructEdge edgeTmp;
 	for(itSrc = listPoint.begin(); itSrc != listPoint.end(); ++itSrc){
-		tempEdge.srcID = itSrc->nID;
+		edgeTmp.srcID = itSrc->nID;
 		itDes = itSrc;
 		for(++itDes; itDes != listPoint.end(); ++itDes){
-			tempEdge.desID = itDes->nID;
-			if(!calEuclidDistance(*itSrc, *itDes, tempEdge.fValue)){
-				cout << "è®¡ç®—æ•°æ®ç‚¹é—´æ¬§æ°è·ç¦»å‡ºé”™ï¼" << endl;
+			edgeTmp.desID = itDes->nID;
+			if(!calEuclidDistance(*itSrc, *itDes, edgeTmp.fValue)){
+				cout << "¼ÆËãÊı¾İµã¼äÅ·ÊÏ¾àÀë³ö´í£¡" << endl;
 				return false;
 			}
-			listSim.push_back(tempEdge);
+			listSim.push_back(edgeTmp);
 		}
 	}
 	return true;
 }
 
-//
-
-
-int main(){
+//¸üĞÂr(i,k)ºÍa(i,k) 
+bool updateRA(list<StructPoint> &listPoint, list<StructEdge> &listSim, list<StructEdge> &listNewR, list<StructEdge> &listNewA, list<StructEdge> &listOldR, list<StructEdge> &listOldA, float fFactor)
+{
+	//ÏÈ¸üĞÂÎüÒı¶ÈR(i,k)=S(i,k)-max{A(i,j)+S(i,j)}
+	list<StructPoint>::iterator itSrc, itDes, itTmp;
+	list<StructEdge>::iterator itEdge, itEdgeTmp;
+	StructEdge edge, edgeTmp;
+	list<StructEdge> listAS;
+	double dMax = -INT_MAX;
+	double dMaxTmp = 0;
+	double dSum = 0;
 	
+	//ÏÈ¼ÆËãA(i,j)+S(i,j)
+	double dATmp = 0;
+	double dSTmp = 0;
+	for(itSrc=listPoint.begin(); itSrc!=listPoint.end(); ++itSrc){ //i
+		for(itDes=listPoint.begin(); itDes!=listPoint.end(); ++itDes){ //j
+			edge.srcID = itSrc->nID;
+			edge.desID = itDes->nID;
+			dATmp = 0;
+			if((itEdge=find(listNewA.begin(),listNewA.end(),edge)) != listNewA.end()){ //ÕÒµ½ÎüÒı¶È
+				dATmp = itEdge->fValue; //i¶ÔjµÄ¹éÊô¶È,A(i,j)
+			}
+			dSTmp = 0;
+			if(itSrc->nID > itDes->nID){ //ÒòÎªÏàËÆ¾ØÕóÊÇ¶Ô³Æ¾ØÕó£¬Ö»±£ÁôÁËÒ»°ë
+				edge.srcID = itDes->nID;
+				edge.desID = itSrc->nID;
+			}
+			if((itEdge=find(listSim.begin(),listSim.end(),edge)) != listSim.end()){ //ÕÒµ½ÏàËÆ¶È
+				dSTmp = itEdge->fValue;
+			}
+			edgeTmp.srcID = itSrc->nID;
+			edgeTmp.desID = itDes->nID;
+			edgeTmp.fValue = (float)(dATmp + dSTmp); //A(i,j)+S(i,j)
+			listAS.push_back(edgeTmp);
+		}
+	}
+	
+	//¸üĞÂR(i,k)
+	//ÏÈÇå¿ÕR
+	listNewR.clear();
+	for(itSrc=listPoint.begin(); itSrc!=listPoint.end(); ++itSrc){ //i
+		for(itDes=listPoint.begin(); itDes!=listPoint.end(); ++itDes){ //k
+			if(itDes->nID == itSrc->nID){ //iµÈÓÚk,ÓÃ¹«Ê½R(k,k)=S(k,k)-max{S(i,k')},k²»µÈÓÚk'
+				//È·¶¨×î´óS(i,k')
+				dMax = -INT_MAX;
+				for(itTmp=listPoint.begin(); itTmp!=listPoint.end(); ++itTmp){ //k'
+					if(itTmp->nID == itDes->nID){ //k'µÈÓÚk
+						continue;
+					}
+					edgeTmp.srcID = itSrc->nID; //i
+					edgeTmp.desID = itTmp->nID; //k'
+					if(itSrc->nID > itTmp->nID){ //ÏàËÆ¾ØÕóÊÇ¶Ô³Æ¾ØÕó£¬Ö»±£ÁôÒ»°ë
+						edgeTmp.srcID = itTmp->nID; // k'
+						edgeTmp.desID = itSrc->nID; // i
+					}
+					if((itEdge=find(listSim.begin(),listSim.end(),edgeTmp)) != listSim.end()){ //ÓĞÏàËÆ¶È
+						if(itEdge->fValue > dMax){
+							dMax = itEdge->fValue;
+						}
+					}
+				}// end for k'
+				//È·¶¨S(k,k)
+				edgeTmp.srcID = itDes->nID; //k
+				edgeTmp.desID = itDes->nID; //k
+				edgeTmp.fValue = 0;
+				if((itEdge=find(listSim.begin(),listSim.end(),edgeTmp)) != listSim.end()){ //ÓĞÏàËÆ¶È
+					edgeTmp.fValue = itEdge->fValue; //S(k,k)
+				}
+				edge.srcID = itSrc->nID; //i,´ËÊ±iµÈÓÚk
+				edge.desID = itDes->nID; //k
+				edge.fValue = (float)(edgeTmp.fValue - dMax); //S(k,k) - max{S(i,k')}
+				if(fabs(edge.fValue) < 0.0000001){ //Îª0
+					edge.fValue = 0;
+				}
+				listNewR.push_back(edge); //±£´æĞÂµÄÎüÒı¶È
+				continue;
+			}//end if k'(i == k)
+
+			//È·¶¨×î´óÖµ max{A(i,j)+S(i,j)} (i != k)
+			dMax = -INT_MAX;
+			dMaxTmp = 0;
+			for(itEdge=listAS.begin(); itEdge!=listAS.end(); ++itEdge){ //Ã¿¸öA(i,j)+S(i,j)
+				if(itEdge->srcID == itSrc->nID && itEdge->desID != itDes->nID){ //k'²»µÈÓÚkÊ±
+					if(itEdge->fValue > dMax){
+						dMax = itEdge->fValue;
+					}
+				}
+			}
+			//È·¶¨S(i,k)
+			edgeTmp.srcID = itSrc->nID; //i
+			edgeTmp.desID = itDes->nID; //k
+			edgeTmp.fValue = 0;
+			if(itSrc->nID > itDes->nID){
+				edgeTmp.srcID = itDes->nID;
+				edgeTmp.desID = itSrc->nID;
+			}
+			if((itEdge=find(listSim.begin(),listSim.end(),edgeTmp)) != listSim.end()){ //ÓĞÏàËÆ¶È
+				edgeTmp.fValue = itEdge->fValue;
+								
+			}
+			edge.srcID = itSrc->nID; //i
+			edge.desID = itDes->nID; //k
+			edge.fValue = (float)(edgeTmp.fValue - dMax); //S(i,k) - max{A(i,j)+S(i,j)}
+			if(fabs(edge.fValue) < 0.0000001){ //Îª0
+				edge.fValue = 0;
+			}
+			listNewR.push_back(edge); //±£´æĞÂµÄÎüÒı¶È
+		} //end for k
+	}//end for i
+	listAS.clear(); //ÊÍ·ÅÄÚ´æ
+	
+	//µü´úÎüÒı¶È
+	for(itEdge=listNewR.begin(); itEdge!=listNewR.end(); ++itEdge)
+	{  //×îÖÕµÄÎüÒı¶È R = (1-×èÄáÏµÊı)*newR + ×èÄáÏµÊı*oldR  //±£ÁôoldRµÄ×÷ÓÃ 
+		itEdge->fValue *= (float)(1.0 - fFactor);
+		if((itEdgeTmp=find(listOldR.begin(),listOldR.end(),*itEdge)) == listOldR.end())
+		{
+			continue;
+		}
+		itEdge->fValue += (itEdgeTmp->fValue * fFactor);
+	}
+	
+	//×îºó¸üĞÂA(i,k) = min{0,R(k,k) + sum{max{0,R(j,k)}}
+	//ÏÈÇå¿ÕA
+	listNewA.clear();
+	for(itSrc=listPoint.begin(); itSrc!=listPoint.end(); ++itSrc) //i
+	{
+		for(itDes=listPoint.begin(); itDes!=listPoint.end(); ++itDes) //k
+		{
+			if(itDes->nID == itSrc->nID) //iµÈÓÚkÊ±£¬¸üĞÂ¹«Ê½£ºA(k,k)=sum{max{0,R(i',k)},ÆäÖĞ£¬i'²»µÈÓÚk
+			{
+				dMax = 0;
+				for(itTmp=listPoint.begin(); itTmp!=listPoint.end(); ++itTmp) //i'
+				{
+					if(itTmp->nID == itDes->nID) //i'µÈÓÚk
+					{
+						continue;
+					}
+					edgeTmp.srcID = itTmp->nID; //R(i',k), i'
+					edgeTmp.desID = itDes->nID; // k
+					if((itEdge=find(listNewR.begin(),listNewR.end(),edgeTmp)) != listNewR.end()) //ÓĞR(i',k)
+					{
+						if(itEdge->fValue > 0) // && itEdge->fValue < 0
+						{
+							dMax += itEdge->fValue;
+						}
+					}
+				}
+			
+				edge.srcID = itDes->nID; //A(k,k), k
+				edge.desID = itDes->nID; // k
+				edge.fValue = (float)(dMax); //A(k,k)=max{0,R(i',k)}
+				if(fabs(edge.fValue) < 0.0000001) //Îª0
+				{
+					edge.fValue = 0;
+				}
+				listNewA.push_back(edge); //±£´æ¸üĞÂµÄA(k,k)
+				continue;
+			}
+
+			//µ±i²»µÈÓÚkÊ±
+			//Çósum{max{0,R(j,k)}
+			dSum = 0;
+			edge.desID = itDes->nID; //R(j,k)ÖĞµÄk
+			for(itTmp=listPoint.begin(); itTmp!=listPoint.end(); ++itTmp) //j
+			{
+				if(itTmp->nID == itSrc->nID || itTmp->nID == itDes->nID) //j²»ÄÜµÈÓÚi,Ò²²»ÄÜµÈÓÚk
+				{
+					continue;
+				}
+				edge.srcID = itTmp->nID; //R(j,k)ÖĞµÄj
+				edge.fValue = 0;
+				if((itEdge=find(listNewR.begin(),listNewR.end(),edge)) != listNewR.end()) //Ã»ÓĞR(j,k)
+				{
+					edge.fValue = (itEdge->fValue>0 ? itEdge->fValue : 0);
+				}
+				dSum += edge.fValue; //ÀÛ¼Ómax{0,R(j,k)}
+			} //end j
+		
+			edge.srcID = itDes->nID; //R(k,k)ÖĞµÄÇ°Ò»¸ök£¬Êµ¼ÊÉÏ¶¼ÏàÍ¬£¬µ«Á´±ífindÊ±ĞèÒª
+			edge.desID = itDes->nID;
+			edge.fValue = 0;
+			if((itEdge=find(listNewR.begin(),listNewR.end(),edge)) != listNewR.end()) //ÕÒµ½R(k,k)
+			{
+				dSum += itEdge->fValue; //ÀÛ¼ÓR(k,k),¼´R(k,k) + sum{max{0,R(j,k)}
+			}
+			if(dSum < 0) //R(k,k) + sum{max{0,R(j,k)}´óÓÚµÈÓÚ0²»ÓÃ¼ÇÂ¼
+			{
+				edge.srcID = itSrc->nID; //A(i,k)ÖĞµÄi
+				edge.desID = itDes->nID; //A(i,k)ÖĞµÄk
+				edge.fValue = (float)(dSum);
+				if(fabs(edge.fValue) < 0.0000001) //Îª0
+				{
+					edge.fValue = 0;
+				}
+				listNewA.push_back(edge); //±£´æ¸üĞÂµÄA(i,k)
+			}
+		} //end k
+	}//end i
+
+	//µü´ú¹éÊô¶ÈA
+	for(itEdge=listNewA.begin(); itEdge!=listNewA.end(); ++itEdge)
+	{ //×îÖÕµÄ¹éÊô¶È A = (1-×èÄáÏµÊı)*newA + ×èÄáÏµÊı*oldA  //±£ÁôoldAµÄ×÷ÓÃ
+		itEdge->fValue *= (float)(1.0 - fFactor);
+		if((itEdgeTmp=find(listOldA.begin(),listOldA.end(),*itEdge)) == listOldA.end())
+		{
+			continue;
+		}
+		itEdge->fValue += (itEdgeTmp->fValue * fFactor);
+	}
+
+	return true;
+}
+
+//È·¶¨´ØÖĞĞÄ
+bool centerJudge(list<StructEdge>& listNewR, list<StructEdge>& listNewA, set<int>& setCenter)
+{
+	list<StructEdge>::iterator itEdgeR, itEdgeA;
+	setCenter.clear(); //ÏÈÇå¿Õ´ØÖĞĞÄµãID¼¯ºÏ
+	float fTmp = 0;
+	for(itEdgeR=listNewR.begin(); itEdgeR!=listNewR.end(); ++itEdgeR)
+	{
+		if(itEdgeR->srcID != itEdgeR->desID) //Ö»ÅĞ¶ÏR(k,k)
+		{
+			continue;
+		}
+		fTmp = 0;
+		if((itEdgeA=find(listNewA.begin(),listNewA.end(),*itEdgeR)) != listNewA.end())
+		{
+			fTmp = itEdgeA->fValue;
+		}
+		if(fTmp + itEdgeR->fValue > 0.000001) //¿ÉÒÔ×÷Îª´ØÖĞĞÄ
+		{
+			setCenter.insert(itEdgeR->srcID); //½«´ØÖĞĞÄ¼ÓÈë¼¯ºÏ
+		}
+	}
+
+	return true;
+}
+
+//¸ù¾İk¸ö¾ÛÀàÖĞĞÄ£¬»®·ÖÊı¾İ¼¯
+bool partitionClustering(list<StructPoint>& listPoint, list<StructPoint>& listKPoint)
+{
+	if(listPoint.empty() || listKPoint.empty())
+	{
+		return false;
+	}
+	list<StructPoint>::iterator itStrPoint;
+	list<StructPoint>::iterator itKPoint;
+	int j = 0;
+	for(itStrPoint=listPoint.begin(); itStrPoint!=listPoint.end(); ++itStrPoint) //Ã¿¸öÊı¾İ
+	{
+		//¼ÆËãÓëÃ¿¸ö¾ÛÀàµÄ¾àÀë£¬Ñ¡Ôñ¾ÛÀà×îĞ¡µÄ×÷Îª¸ÃÊı¾İµÄÀà
+		double dMin = FLT_MAX;
+		int nType = itStrPoint->nType; //Êı¾İµÄÀà±ğ
+		j = 1;
+		for(itKPoint=listKPoint.begin(); itKPoint!=listKPoint.end(); ++itKPoint,++j) //Ã¿¸ö¾ÛÀà
+		{
+			double dTmpSum = 0;
+			dTmpSum = (itStrPoint->pointX - itKPoint->pointX) * (itStrPoint->pointX - itKPoint->pointX) + (itStrPoint->pointY - itKPoint->pointY) * (itStrPoint->pointY - itKPoint->pointY);
+			dTmpSum = sqrt(dTmpSum); //Å·Ê½¾àÀë
+			if(dTmpSum < dMin)
+			{
+				dMin = dTmpSum;
+				nType = j;
+			}
+		} //end for Ã¿¸ö¾ÛÀàÖĞĞÄ
+		itStrPoint->nType = nType; //È·¶¨¸ÃÊı¾İ¶ÔÏóµÄÀà±ğ
+	} //end for Ã¿¸öÊı¾İ
+
+	return true;
+}
+
+//AP(Affinity Propagation)¾ÛÀà,Ê×ÏÈ¼ÆËãÃ¿¶ÔÊı¾İ¶ÔÏóÖ®¼äµÄ¾àÀë£¬ÊÊÓÃÓÚĞ¡Êı¾İ¼¯£¬ÒòÎª´óÊı¾İ¼¯ÄÚ´æ²»ÄÜÈİÄÉ
+bool cluster_AP_int(list<StructPoint>& listPoint, list<StructPoint>& listK, int nIt, int nK, float fFactor)
+{  //nItµü´ú´ÎÊı£» nKÊı¾İµãÊı 
+	if(listPoint.empty())
+	{
+		return false;                       
+	}
+
+	list<StructEdge> listSim;
+	//µÚÒ»²½£º¼ÆËãÃ¿¶ÔµãÖ®¼äµÄ¾àÀë,ÄÚ´æÎŞ·¨ÈİÄÉÃ¿¶ÔÊı¾İ¶ÔÏóÖ®¼äµÄ¾àÀë£¬Òò´Ë²»ÄÜÊÂÏÈ¼ÆËã²¢±£´æ£¬Ö»ÄÜÊµÊ±¼ÆËã
+	cout << "ÕıÔÚ¼ÆËãÃ¿¶ÔÊı¾İ¶ÔÏóÖ®¼äµÄ¾àÀë" << endl; 
+	if(!(calSimilarity(listPoint,listSim)))
+	{
+		cout << "¼ÆËãÊı¾İ¶ÔÏóÁ½Á½Ö®¼äµÄ¾àÀë³ö´í" << endl;
+		return false;
+	}
+	//ÓÃËùÓĞ¾àÀëµÄÖĞÖµµÄÒ»°ë×÷Îª²Î¿¼¶È
+	cout << "È·¶¨²Î¿¼¶È" << endl;
+	list<StructEdge>::iterator itEdge;
+	vector<float> vecSim;  //ÓÃÀ´±£´æËùÓĞsimÖµ£¬È»ºóÅÅĞòµÃµ½ÖĞÖµ 
+	for(itEdge=listSim.begin(); itEdge!=listSim.end(); ++itEdge)
+	{
+		vecSim.push_back(itEdge->fValue);
+	}
+	sort(vecSim.begin(),vecSim.end()); //ÅÅĞò
+	int nSize = vecSim.size();
+	double dP = vecSim[nSize/2];
+	if(nSize % 2 == 0) //Å¼Êı¸öÊı¾İ¶ÔÏó
+	{
+		dP = (vecSim[nSize/2] + vecSim[nSize/2+1]) / 2.0;
+	}
+	vecSim.clear(); //ÊÍ·ÅÄÚ´æ
+	
+	list<StructPoint>::iterator itStrPoint;
+	StructEdge edge;
+	for(itStrPoint=listPoint.begin(); itStrPoint!=listPoint.end(); ++itStrPoint)
+	{   //³õÊ¼»¯s(k,k)¶¼ÎªdP 
+		edge.srcID = itStrPoint->nID;
+		edge.desID = itStrPoint->nID;
+		edge.fValue = (float)dP;
+		listSim.push_back(edge);
+	}
+
+	//µÚ¶ş²½£ºµü´úÑ°ÕÒºÏÊÊµÄ¾ÛÀàÖĞĞÄ
+	list<StructEdge> listNewR, listNewA, listOldR, listOldA; //ĞÂ¾ÉÎüÒı¶ÈºÍ¹éÊô¶È
+	
+	int i = 0;
+	set<int> setNewCenter, setOldCenter, setTmp;
+	insert_iterator<set<int,less<int> > >  res_ins(setTmp, setTmp.begin());
+	int t = 0;
+
+	while(i < nIt)
+	{
+		cout << "µÚ" << ++i << "´Îµü´ú" << endl;
+		//±£´æĞÂÎüÒı¶ÈºÍ¹éÊô¶È
+		listOldR.clear();
+		listOldA.clear();
+		listOldR.assign(listNewR.begin(), listNewR.end());
+		listOldA.assign(listNewA.begin(), listNewA.end());
+
+		//¸üĞÂÎüÒı¶ÈºÍ¹éÊô¶È
+		cout << "ÕıÔÚ¸üĞÂÎüÒı¶ÈºÍ¹éÊô¶È" << endl;
+		if(!updateRA(listPoint, listSim, listNewR, listNewA, listOldR, listOldA, fFactor))
+		{
+			cout << "¸üĞÂÎüÒı¶ÈºÍ¹éÊô¶ÈÊ§°Ü" << endl;
+			return false;
+		}
+		
+		//È·¶¨ÖĞĞÄµã
+		cout << "ÕıÔÚÈ·¶¨ÖĞĞÄµã" << endl;
+		if(!centerJudge(listNewR, listNewA, setNewCenter))
+		{
+			cout << "È·¶¨ÖĞĞÄµãÊ§°Ü" << endl;
+		}
+		//¸üĞÂ´ØÖĞĞÄ
+		setOldCenter.clear();
+		setOldCenter.insert(setNewCenter.begin(),setNewCenter.end());
+	}
+	listSim.clear(); //ÊÍ·ÅÊı¾İ¶ÔÏóÖ®¼äµÄ¾àÀëÕ¼ÓÃµÄÄÚ´æ
+	setOldCenter.clear();
+
+	if(setNewCenter.empty())
+	{
+		cout << "Ã»ÓĞÕÒ³öÈÎºÎ´ØÖĞĞÄ" << endl;
+		return false;
+	}
+	//µÚÈı²½£º¾ÛÀà
+	StructPoint strPoint;
+	//ÌáÈ¡¾ÛÀàÖĞĞÄ
+	int k = 1;
+	for(set<int>::iterator itSet=setNewCenter.begin(); itSet!=setNewCenter.end(); ++itSet,++k)
+	{
+		for(itStrPoint=listPoint.begin(); itStrPoint!=listPoint.end(); ++itStrPoint)
+		{
+			if(*itSet == itStrPoint->nID) //´ØÖĞĞÄ
+			{
+				strPoint.nID = *itSet;
+				strPoint.nType = k;
+				strPoint.pointX = itStrPoint->pointX;
+				strPoint.pointY = itStrPoint->pointY;
+				listK.push_back(strPoint);
+			}
+		}
+	}
+	setNewCenter.clear();
+
+	//¾ÛÀà
+	if(!partitionClustering(listPoint,listK))
+	{
+		cout<<"¾ÛÀàÊ§°Ü"<<endl;
+	}
+	cout<<"´ØÊıÄ¿Îª£º"<<(k-1)<<endl;
+
+	return true;
+}
+
+
+
+int main()
+{
+	//APËã·¨Àı×Ó
+	list<StructPoint> listPoint;
+	list<StructPoint> listK; //´ØÖĞĞÄ
+	ifstream inFile;
+	inFile.open("./AP_example.txt");
+	StructPoint strPoint;
+	if(!inFile)
+	{
+		cout << "¶ÁÈ¡APÊı¾İÀı×ÓÊ§°Ü" << endl;
+		return 0;
+	}
+	int k = 0;
+	while(!inFile.eof())
+	{
+		strPoint.nID = ++k;
+		strPoint.nType = 0;
+		inFile >> strPoint.pointX;
+		inFile >> strPoint.pointY;
+		listPoint.push_back(strPoint);
+	}
+	inFile.close();
+
+	//¾ÛÀà
+	cout<<"ÕıÔÚ¾ÛÀà"<<endl;
+	float fFactor = 0.5;  //×èÄáÏµÊıÎª0.5 
+	int nIt = 500;        //µü´ú´ÎÊı 
+	int nK = 10;		  //Êı¾İµãÊı 
+	if(!(cluster_AP_int(listPoint, listK, nIt, nK, fFactor))) //AP¾ÛÀà
+	{
+		cout<<"¾ÛÀàÊ§°Ü"<<endl;
+		//ÊÍ·ÅÄÚ´æ
+		listPoint.clear();
+		return 0;
+	}
+
+	cout<<"¾ÛÀà³É¹¦"<<endl;
+
+	//Êä³ö¾ÛÀà½á¹û
+	ofstream outFile("./cluster_AP.txt"); 
+	if(!outFile)
+	{
+		cout << "±£´æÊ§°Ü" << endl;
+	}
+	for(list<StructPoint>::iterator k=listPoint.begin(); k!=listPoint.end(); ++k)
+	{
+		outFile << k->nID << "\t" << k->nType << endl;
+	}
+	outFile.close();
+
+	cout<<"´ØÖĞĞÄÎª£º"<<endl;
+	for(list<StructPoint>::iterator k=listK.begin(); k!=listK.end(); ++k)
+	{
+		cout << k->nID << "\t" << k->nType << "\t" << k->pointX << "\t" << k->pointY;
+		cout<<endl;
+	}
+	//ÊÍ·ÅÄÚ´æ
+	
+	listPoint.clear();
+	listK.clear();
+
 	return 0;
 }
