@@ -1,0 +1,68 @@
+
+#include<iostream>
+#include <fstream>
+#include<algorithm> 
+#include<vector>
+#define DATASIZE 100
+using namespace std;
+
+int dataNum;
+struct Point{
+       int nID;
+       int nType;
+       float pX, pY;
+}point[DATASIZE];
+
+bool calSimilarity(double (&sim)[DATASIZE][DATASIZE])
+{
+     vector<double> vecSim;
+     for(int i=0; i!=dataNum; ++i)
+     {
+             for(int j=i+1; j!=dataNum; ++j)
+             {  //相似度矩阵轴对称，因此只计算一半 
+                     sim[i][j] = (point[i].pX - point[j].pX) * (point[i].pX - point[j].pX)
+                                 + (point[i].pY - point[j].pY) * (point[i].pY - point[j].pY);
+                     sim[i][j] = -sim[i][j];
+                     vecSim.push_back(sim[i][j]); //值加入vector中，为了排序 
+             }
+     }
+     sort(vecSim.begin(), vecSim.end()); //排序，为了找中值
+     int nSize = vecSim.size();
+     double dP = vecSim[nSize/2];  //dP为相似度中值 
+     if(nSize % 2 == 0) //偶数个数据对象
+	 {
+              dP = (vecSim[nSize/2] + vecSim[nSize/2+1]) / 2.0;
+	 }
+	 for(int i=0; i!= dataNum; ++i)
+	 {
+             sim[i][i] = dP;  //sim[i][i]初始化为相似度中值 
+     }
+     return true;
+}
+
+int main()
+{
+    ifstream inFile;
+    inFile.open("../AP_example.txt");
+    if(!inFile)
+    {
+		cout << "读取AP数据例子失败" << endl;
+		return 0;
+	}
+	dataNum = 0;
+	while(!inFile.eof())
+	{
+		point[dataNum].nID = dataNum;
+		point[dataNum].nType = 0;
+		inFile >> point[dataNum].pX;
+		inFile >> point[dataNum].pY;
+		dataNum++;
+	}
+	inFile.close();
+	
+	double s[DATASIZE][DATASIZE];
+	double r[DATASIZE][DATASIZE];
+	double a[DATASIZE][DATASIZE];
+	calSimilarity(s);
+    return 0;
+}
