@@ -3,6 +3,7 @@
 #include<fstream>
 #include<algorithm> 
 #include<vector>
+#include <cfloat>
 #define DATASIZE 100
 using namespace std;
 
@@ -100,7 +101,131 @@ bool updateRA(float fFactor)
 					newR[i][k] = tmpS - maxS_AS;
              } //end for k
      } //end for i
-     return true;
+     
+    //迭代吸引度，完成R[i][j]的最终更新 
+	for(int i=0; i!=dataNum; ++i)
+	{  //最终的吸引度 R = (1-阻尼系数)*newR + 阻尼系数*oldR  //保留oldR的作用 
+		for(int j=0; j!=dataNum; ++j)
+		{
+			newR[i][j] = (1.0 - fFactor) * newR[i][j] + fFactor * oldR[i][j];
+		}
+	}
+	
+	//更新A(i,k)
+	for(int i=0; i!=dataNum; ++i) //i
+	{
+		for(int k=0; k!=dataNum; ++k) //k
+		{
+			//先计算sum{max{0,R(j,k)} 
+			double sumTmp;
+			for(int j=0; j!=dataNum; ++j)
+			{
+				if(k != j && i!= j)
+				{
+					sumTmp += (0 > newR[j][k]) ? 0:newR[j][k]; 
+				}
+			}
+			if(i == k) //i等于k，更新公式：A(k,k)=sum{max{0,R(j,k)},其中，j不等于k 
+			{
+				newA[i][k] = sumTmp;
+			}
+			else //i不等于k，更新公式：A(i,k) = min{0,R(k,k) + sum{max{0,R(j,k)}}
+			{
+				sumTmp += newR[k][k];
+				newA[i][k] = (0 < sumTmp) ? 0:sumTmp;
+			}
+		} //end for k
+	} // end for i
+	
+	//迭代吸引度，完成A[i][j]的最终更新 
+	for(int i=0; i!=dataNum; ++i)
+	{  //最终的吸引度 A = (1-阻尼系数)*newA + 阻尼系数*oldA  //保留oldA的作用 
+		for(int j=0; j!=dataNum; ++j)
+		{
+			newA[i][j] = (1.0 - fFactor) * newA[i][j] + fFactor * oldA[i][j];
+		}
+	}
+	
+    return true;
+}
+
+//确定簇中心
+int centerJudge(int (&center)[DATASIZE])
+{
+	int cenNum = 0;
+	for(int k=0; k!=dataNum; ++k)
+	{
+		if(newA[k][k] + newR[k][k] > 0)
+		{
+			center[cenNum] = k;
+			cenNum++;
+		}
+	}
+	return cenNum;
+}
+
+//根据k个聚类中心，划分数据集
+bool partitionClustering(int (&center)[DATASIZE], int cenNum)
+{
+	if(cenNum <= 0)
+	{
+		return false;
+	}
+	for(int i=0; i!=dataNum; ++i) //每个数据点 
+	{
+		double dMin = FLT_MAX;
+		int cen_I;
+		for(int j=0; j!=cenNum; ++j) //每个簇中心 
+		{
+			double dis;
+			dis = (point[i].pX - point[center[j]].pX) * (point[i].pX - point[center[j]].pX)
+				  + (point[i].pY - point[center[j]].pY) * (point[i].pY - point[center[j]].pY);
+			if(dis < dMin)
+			{
+				cen_I = center[j];
+			}
+		}
+		point[i].nType = cen_I;
+	}
+	return true;
+}
+
+bool cluster_AP(int nIt, float fFactor)
+{
+	//先计算数据点间相似度 
+	calSimilarity();
+	
+	//开始迭代更新R和A 
+	int i = 0;
+	while(i < nIt)
+	{
+		cout << "第" << ++i << "次迭代" << endl;
+		//更新吸引度和归属度
+		cout << "正在更新吸引度和归属度" << endl;
+		if(!updateRA(fFactor))
+		{
+			cout << "更新吸引度和归属度失败" << endl;
+			return false;
+		}
+	}
+	
+	//更新簇中心 
+	int center[DATASIZE];
+	int cenNum = centerJudge(center);
+	if(cenNum <= 0)
+	{
+		cout << "没有找出簇中心" << endl;
+		return false;
+	}
+	
+	//聚类
+	if(!partitionClustering(center, cenNum))
+	{
+		return false;
+	}
+	cout << "簇数目为：" << cenNum << endl;
+	
+	return true;
 }
 
 int main()
@@ -115,7 +240,7 @@ int main()
 	dataNum = 0;
 	while(!inFile.eof())
 	{
-		point[dataNum].nID = dataNum;
+		point[dataNum].nID = dataNum; //数据点标号和在数组对应下标相同 
 		point[dataNum].nType = 0;
 		inFile >> point[dataNum].pX;
 		inFile >> point[dataNum].pY;
@@ -123,6 +248,35 @@ int main()
 	}
 	inFile.close();
 	
-	calSimilarity();
+	//聚类
+	cout << "正在聚类" << endl;
+	float fFactor = 0.5;  //阻尼系数为0.5 
+	int nIt = 500;        //迭代次数 
+	if(!(cluster_AP(nIt, fFactor))) //AP聚类
+	{
+		cout << "聚类失败" << endl;
+		return 0;
+	}
+	cout << "聚类成功" << endl;
+	
+	//输出聚类结果
+	ofstream outFile("./cluster_AP.txt"); 
+	if(!outFile)
+	{
+		cout << "保存失败" << endl;
+	}
+	for(int i=0; i!=dataNum; ++i)
+	{
+		outFile << point[i].nID << "\t" << point[i].nType << endl;
+	}
+	outFile.close();
+
+	cout << "簇中心为：" << endl;
+	for(int i=0; i!=dataNum; ++i)
+	{
+		cout << point[i].nID << "\t" << point[i].nType << "\t" << point[i].pX << "\t" << point[i].pY;
+		cout << endl;
+	}
+	
     return 0;
 }
