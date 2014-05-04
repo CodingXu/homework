@@ -2,8 +2,9 @@
 #include<iostream>
 #include<fstream>
 #include<algorithm> 
+#include <cmath>
 #include<vector>
-#include <cfloat>
+#include<cfloat>
 #define DATASIZE 100
 using namespace std;
 
@@ -43,6 +44,7 @@ bool calSimilarity()
 	 {
              sim[i][i] = dP;  //sim[i][i]初始化为相似度中值 
      }
+
      return true;
 }
 
@@ -57,7 +59,7 @@ bool updateRA(float fFactor)
                      oldR[i][j] = newR[i][j];
                      oldA[i][j] = newA[i][j];
                      //计算所有 A(i,j)+S(i,j)
-                     tmpAS = i>j?sim[j][i]:sim[i][j];
+                     tmpAS = (i > j) ? sim[j][i] : sim[i][j];
                      tmpAS += newA[i][j];
                      sumAS[i][j] = tmpAS;
              }
@@ -75,13 +77,14 @@ bool updateRA(float fFactor)
 					 	{
 					 		if(k != j)
 					 		{
-					 			int tmpS = i>j?sim[j][i]:sim[i][j];
+					 			double tmpS = (i > j) ? sim[j][i] : sim[i][j];
 								if(tmpS > maxS_AS)
 								{
 									maxS_AS = tmpS;
 								} 
 					 		}
 					 	}
+					 	//cout<<i<<" : "<<maxS_AS<<endl;
 					}
 					else //i不等于k,用公式R(i,k)=S(i,k)-max{A(i,j)+S(i,j)},k不等于j
 					{
@@ -97,7 +100,7 @@ bool updateRA(float fFactor)
 					 		}
 					 	}
 					} 
-					int tmpS = i>k?sim[k][i]:sim[i][k];
+					double tmpS = (i > k) ? sim[k][i] : sim[i][k];
 					newR[i][k] = tmpS - maxS_AS;
              } //end for k
      } //end for i
@@ -107,6 +110,10 @@ bool updateRA(float fFactor)
 	{  //最终的吸引度 R = (1-阻尼系数)*newR + 阻尼系数*oldR  //保留oldR的作用 
 		for(int j=0; j!=dataNum; ++j)
 		{
+			if(fabs(newR[i][j]) < 0.0000001)
+			{
+				newR[i][j] = 0;
+			}
 			newR[i][j] = (1.0 - fFactor) * newR[i][j] + fFactor * oldR[i][j];
 		}
 	}
@@ -117,12 +124,12 @@ bool updateRA(float fFactor)
 		for(int k=0; k!=dataNum; ++k) //k
 		{
 			//先计算sum{max{0,R(j,k)} 
-			double sumTmp;
+			double sumTmp = 0.0;
 			for(int j=0; j!=dataNum; ++j)
 			{
 				if(k != j && i!= j)
 				{
-					sumTmp += (0 > newR[j][k]) ? 0:newR[j][k]; 
+					sumTmp += (0.0 > newR[j][k]) ? 0.0 : newR[j][k]; 
 				}
 			}
 			if(i == k) //i等于k，更新公式：A(k,k)=sum{max{0,R(j,k)},其中，j不等于k 
@@ -132,7 +139,7 @@ bool updateRA(float fFactor)
 			else //i不等于k，更新公式：A(i,k) = min{0,R(k,k) + sum{max{0,R(j,k)}}
 			{
 				sumTmp += newR[k][k];
-				newA[i][k] = (0 < sumTmp) ? 0:sumTmp;
+				newA[i][k] = (0.0 < sumTmp) ? 0.0 : sumTmp;
 			}
 		} //end for k
 	} // end for i
@@ -142,10 +149,14 @@ bool updateRA(float fFactor)
 	{  //最终的吸引度 A = (1-阻尼系数)*newA + 阻尼系数*oldA  //保留oldA的作用 
 		for(int j=0; j!=dataNum; ++j)
 		{
+			if(fabs(newA[i][j]) < 0.0000001)
+			{
+				newA[i][j] = 0.0;
+			}
 			newA[i][j] = (1.0 - fFactor) * newA[i][j] + fFactor * oldA[i][j];
 		}
 	}
-	
+
     return true;
 }
 
@@ -182,6 +193,7 @@ bool partitionClustering(int (&center)[DATASIZE], int cenNum)
 				  + (point[i].pY - point[center[j]].pY) * (point[i].pY - point[center[j]].pY);
 			if(dis < dMin)
 			{
+				dMin = dis;
 				cen_I = center[j];
 			}
 		}
@@ -190,7 +202,7 @@ bool partitionClustering(int (&center)[DATASIZE], int cenNum)
 	return true;
 }
 
-bool cluster_AP(int nIt, float fFactor)
+bool cluster_AP(int nIt, float fFactor, int (&center)[DATASIZE], int &cenNum)
 {
 	//先计算数据点间相似度 
 	calSimilarity();
@@ -210,8 +222,7 @@ bool cluster_AP(int nIt, float fFactor)
 	}
 	
 	//更新簇中心 
-	int center[DATASIZE];
-	int cenNum = centerJudge(center);
+	cenNum = centerJudge(center);
 	if(cenNum <= 0)
 	{
 		cout << "没有找出簇中心" << endl;
@@ -252,7 +263,9 @@ int main()
 	cout << "正在聚类" << endl;
 	float fFactor = 0.5;  //阻尼系数为0.5 
 	int nIt = 500;        //迭代次数 
-	if(!(cluster_AP(nIt, fFactor))) //AP聚类
+	int center[DATASIZE];
+	int cenNum = 0;
+	if(!(cluster_AP(nIt, fFactor, center, cenNum))) //AP聚类
 	{
 		cout << "聚类失败" << endl;
 		return 0;
@@ -265,6 +278,7 @@ int main()
 	{
 		cout << "保存失败" << endl;
 	}
+	outFile << "数据点" << "\t" << "中心点" << endl;
 	for(int i=0; i!=dataNum; ++i)
 	{
 		outFile << point[i].nID << "\t" << point[i].nType << endl;
@@ -272,9 +286,9 @@ int main()
 	outFile.close();
 
 	cout << "簇中心为：" << endl;
-	for(int i=0; i!=dataNum; ++i)
+	for(int i=0; i!=cenNum; ++i)
 	{
-		cout << point[i].nID << "\t" << point[i].nType << "\t" << point[i].pX << "\t" << point[i].pY;
+		cout << point[center[i]].nID << "\t" << point[center[i]].pX << "\t" << point[center[i]].pY;
 		cout << endl;
 	}
 	
