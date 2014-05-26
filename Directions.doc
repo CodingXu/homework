@@ -1,0 +1,43 @@
+APCluster:
+
+The program is based on C++ language. The compiler is the TDM-GCC 4.7.1 32-bit Release. The program data set is 
+
+used 10 dimensional coordinates which is defined by ourselves, reading from the AP_example.txt file as input. The 
+
+output of the program includes all iterative processes in the console and the clustering center and the number 
+
+after the final clustering, cluster_AP.txt file is the clustering results of all data points, showing the label 
+
+for each data point and the cluster center label corresponding the data points .
+
+
+
+The  process for the program:
+
+1. The damping coefficient is chosen as 0.5 for the  procedures , the number of iterations is fixed 500 times.
+
+2. Store in the Point array structure after reading the data,the similarity S(i, k),the degree of attraction 
+
+   R(i, k) and the degree of membership A(i, k) are all represented by the array, S(i, k) (i is not equal 
+   
+   to k) is initialized as the Euclidean distance between each of the two data points, S(k, k) as the initial 
+   
+   preference for all S(i, k) of the median. R(i, k) and A(i, k) are initialized to 0.
+
+3. Begin to iterate and update R(i, k) and A(i, k). Where R(i, k) updated: when i equals k, the 
+
+   R (k, k) =s (k, k) -max{s (i, j)} (k does not equal j); when i is not equal to k, r(k,k)=s(k,k)-max{s(i,j)} 
+   
+   ( k is not equal to j). A(i, k) updated: when i equals k, the a (k, k) =sum{max{0, R(j, k)} (j does not equal k); 
+   
+   i is not equal to k, A(i, k) = min{0, R(k, k) + sum{max{0, R(j, k}} (j, k) is not equal to k). Finally, R and A 
+   
+   needs to complete the final updated with the damping coefficient: R = (1- damping factor) *newR + (damping factor)*oldR; 
+   
+   A = (1- damping factor) *newA +(damping factor) *oldA.
+
+4. Determine the cluster center : to calculate when a (k, k) +r (k, k) > 0, determine the data point k as the cluster center.
+
+5. Calculate the cluster center of the Euclidean distance for each data point, the minimum for the data points is the exemplar.
+
+6. Finally output the results.
